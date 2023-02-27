@@ -1,0 +1,77 @@
+{$lua}
+previousAction = 'left'
+if syntaxcheck then return end
+[ENABLE]
+local currentPartsOffsets = {0x002655D8, 0x00, 0x98, 0xB60, 0x28, 0x48, 0x18, 0x20}
+local branchOffset = {0x10, 0x30}
+local IDOffset = 0xAC
+local monoBaseAddress = getAddress("mono.dll")
+local address = monoBaseAddress
+
+for i, v in ipairs(currentPartsOffsets) do
+    address = readPointer(address + v)
+
+end
+
+local branchAheadAddress = address
+
+local sleepTime = 20
+local stop = 0
+local timer = createTimer(getMainForm())
+timer.Interval = 5
+timer.OnTimer = timer_tick_left
+
+local function timer_tick_left(timer)
+      keyUp(37)
+      timer.Enabled = false
+end
+
+local function timer_tick_right(timer)
+      keyUp(39)
+      timer.Enabled = false
+end
+local previous = address
+
+while(stop == 0) do
+
+    branchAheadAddress = address
+    for i, v in ipairs(branchOffset) do
+       branchAheadAddress = readPointer(branchAheadAddress + v)
+    end
+    while previous ~= branchAheadAddress do
+      previous = branchAheadAddress
+      local branchAheadValue = readInteger(branchAheadAddress + IDOffset, true)
+      if(branchAheadValue == -1) then
+          if(previousAction == 'left') then
+              keyDown(37)
+              timer.setOnTimer = timer_tick_left
+              timer.Enabled = true
+              keyUp(37)
+          else
+              keyDown(39)
+              timer.setOnTimer = timer_tick_right
+              keyUp(39)
+          end
+      elseif(branchAheadValue <= 2) then
+          keyDown(39)
+          previousAction = 'right'
+          timer.setOnTimer = timer_tick_right
+          timer.Enabled = true
+          keyUp(39)
+      else
+          keyDown(37)
+          previousAction = 'left'
+          timer.setOnTimer = timer_tick_left
+          timer.Enabled = true
+          keyUp(37)
+      end
+
+      if(isKeyPressed(VK_ESCAPE)) then
+          stop = 1
+          break
+      end
+    end
+end
+timer.destroy()
+{$asm}
+[DISABLE]
